@@ -48,15 +48,23 @@ func (brewer *Brewer) GetTaskId() int {
 func (brewer *Brewer) BrewRoutine(recipe Recipe) {
     defer brewer.Unlock()
 
+    var abort = make(chan struct{})
+
+    stepLoop:
     for stepi,step := range recipe {
         var stepWg sync.WaitGroup
+        stepWg.Add(len(step))
         for idStr,time := range step {
           var id, _ = strconv.ParseInt(idStr, 10, 64)
-          stepWg.Add(1)
-          go ServePump(id, time, &stepWg)
+          go ServePump(id, time, &stepWg, abort)
         }
 
         stepWg.Wait()
+        select {
+          case <- abort:
+            break stepLoop
+          default:
+        }
         fmt.Printf("Step %d done\n", stepi)
     }
 }
