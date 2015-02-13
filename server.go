@@ -42,6 +42,7 @@ func abort(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+    initializePumps()
     http.HandleFunc("/brew", brew)
     http.HandleFunc("/status", status)
     http.HandleFunc("/abort", abort)
