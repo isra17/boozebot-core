@@ -1,15 +1,12 @@
 package main
 
 import (
-    "time"
     "encoding/json"
     "fmt"
     "net/http"
-    "sync/atomic"
-    "brewing_service"
 )
 
-var brewer = Brewer
+var brewer Brewer
 
 func brew(w http.ResponseWriter, r *http.Request) {
     fmt.Fprintf(w, "Hello world!\n")
