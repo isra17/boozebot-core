@@ -38,13 +38,23 @@ func status(w http.ResponseWriter, r *http.Request) {
 
 func abort(w http.ResponseWriter, r *http.Request) {
     brewer.Abort()
-    status(w, r)
+}
+
+func pause(w http.ResponseWriter, r *http.Request) {
+    brewer.Pause()
+}
+
+func resume(w http.ResponseWriter, r *http.Request) {
+    brewer.Resume()
 }
 
 func main() {
+    brewer = MakeBrewer()
     initializePumps()
     http.HandleFunc("/brew", brew)
     http.HandleFunc("/status", status)
     http.HandleFunc("/abort", abort)
+    http.HandleFunc("/pause", pause)
+    http.HandleFunc("/resume", resume)
     http.ListenAndServe(":6543", nil)
 }

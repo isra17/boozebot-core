@@ -5,6 +5,8 @@ import (
     "sync/atomic"
     "sync"
     "fmt"
+    "time"
+    "github.com/isra17/boozebot-core/event"
 )
 
 type Recipe []map[string]int
@@ -13,8 +15,20 @@ type Brewer struct {
     is_brewing int32
     task_id int
     recipe Recipe
-    abort chan struct{}
-    abort_mutex sync.Mutex
+
+    abort event.Event
+    pause event.Event
+    resume event.Event
+}
+
+func MakeBrewer() Brewer {
+  brewer := Brewer {
+    abort: event.MakeEvent(),
+    pause: event.MakeEvent(),
+    resume: event.MakeEvent(),
+  }
+
+  return brewer
 }
 
 func (brewer *Brewer) Lock() bool {
@@ -45,35 +59,86 @@ func (brewer *Brewer) GetTaskId() int {
 
 func (brewer *Brewer) BrewRoutine(recipe Recipe) {
     defer brewer.Unlock()
+    brewer.abort.Reset()
+    brewer.pause.Reset()
+    brewer.resume.Reset()
 
-    brewer.abort = make(chan struct{})
-
-    stepLoop:
     for stepi,step := range recipe {
-        stepWg := sync.WaitGroup{}
-        stepWg.Add(len(step))
-        for idStr,time := range step {
-          var id, _ = strconv.ParseInt(idStr, 10, 64)
-          go ServePump(id, time, &stepWg, brewer.abort)
-        }
-
-        stepWg.Wait()
-        select {
-          case <- brewer.abort:
-            break stepLoop
-          default:
+        if !brewer.processStep(step) {
+          fmt.Printf("Abort\n")
+          break
         }
         fmt.Printf("Step %d done\n", stepi)
     }
 }
 
-func (brewer *Brewer) Abort() {
-    brewer.abort_mutex.Lock()
-    defer brewer.abort_mutex.Unlock()
+func updateStep(step map[string]int, elapsed int) map[string]int {
+  for id,time := range step {
+    step[id] -= elapsed
+    if(time <= elapsed) {
+      delete(step, id)
+    }
+  }
+
+  return step
+}
+
+func (brewer *Brewer) waitPause() bool {
+  brewer.resume.Reset()
+  select {
+  case <-brewer.resume.Wait():
+    return true
+  case <-brewer.abort.Wait():
+    return false
+  case <-time.After(time.Second * 10):
+    return false
+  }
+}
+
+func (brewer *Brewer) processStep(step map[string]int) bool {
+  for len(step) > 0 {
+    startAt := time.Now().UnixNano()
+
+    stepWg := sync.WaitGroup{}
+    stepWg.Add(len(step))
+
+    for idStr,time := range step {
+      var id, _ = strconv.ParseInt(idStr, 10, 64)
+      go ServePump(id, time, &stepWg, brewer)
+    }
+
+    stepWg.Wait()
 
     select {
-    case <- brewer.abort:
-    default:
-        close(brewer.abort)
+      case <- brewer.pause.Wait():
+        elapsed := int((time.Now().UnixNano() - startAt) / 1000000)
+        fmt.Printf("Elapsed: %d\n", elapsed)
+        step = updateStep(step, elapsed)
+
+        if !brewer.waitPause() {
+          return false
+        }
+
+        brewer.pause.Reset()
+        fmt.Println("Resume")
+      case <- brewer.abort.Wait():
+        return false
+      default:
+        return true
     }
+  }
+
+  return true
+}
+
+func (brewer *Brewer) Abort() {
+  brewer.abort.Signal()
+}
+
+func (brewer *Brewer) Pause() {
+  brewer.pause.Signal()
+}
+
+func (brewer *Brewer) Resume() {
+  brewer.resume.Signal()
 }
