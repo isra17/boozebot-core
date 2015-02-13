@@ -24,7 +24,17 @@ func brew(w http.ResponseWriter, r *http.Request) {
     }
 }
 
+func status(w http.ResponseWriter, r *http.Request) {
+    var task_id = brewer.GetTaskId()
+    if task_id < 0 {
+      fmt.Fprintf(w, "{\"is_brewing\":false, \"task_id\":null}")
+    } else {
+      fmt.Fprintf(w, "{\"is_brewing\":true, \"task_id\": %d}", task_id)
+    }
+}
+
 func main() {
     http.HandleFunc("/brew", brew)
+    http.HandleFunc("/status", status)
     http.ListenAndServe(":6543", nil)
 }

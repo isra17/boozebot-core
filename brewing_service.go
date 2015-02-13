@@ -9,6 +9,8 @@ type Recipe []map[string]int
 
 type Brewer struct {
     is_brewing int32
+    task_id int
+    recipe Recipe
 }
 
 type BrewingService interface {
@@ -25,9 +27,24 @@ func (brewer *Brewer) Unlock() {
 
 func (brewer *Brewer) Brew(recipe Recipe) bool {
     if !brewer.Lock() { return false }
-    defer brewer.Unlock()
+    brewer.recipe = recipe
+    brewer.task_id++
 
-    time.Sleep(3000 * time.Millisecond)
+    go brewer.BrewRoutine(recipe)
 
     return true;
+}
+
+func (brewer *Brewer) GetTaskId() int {
+  if brewer.is_brewing == 1 {
+    return brewer.task_id
+  } else {
+    return -1
+  }
+}
+
+func (brewer *Brewer) BrewRoutine(recipe Recipe) {
+    defer brewer.Unlock()
+
+    time.Sleep(10000 * time.Millisecond)
 }
