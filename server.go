@@ -9,18 +9,21 @@ import (
 var brewer Brewer
 
 func brew(w http.ResponseWriter, r *http.Request) {
-    fmt.Fprintf(w, "Hello world!\n")
     decoder := json.NewDecoder(r.Body)
     var brewRequest Recipe
     err := decoder.Decode(&brewRequest)
     if(err != nil) {
+        w.WriteHeader(400)
         fmt.Fprintf(w, "Wrong request format\n" + err.Error())
         return
     }
+    w.Header().Set("Content-Type", "application/json")
     if brewer.Brew(brewRequest) {
-        fmt.Fprintf(w, "%+v\n", brewRequest)
+        w.WriteHeader(202)
+        status(w, r)
     } else {
-        fmt.Fprintf(w, "Already boozing\n")
+        w.WriteHeader(412)
+        status(w, r)
     }
 }
 
