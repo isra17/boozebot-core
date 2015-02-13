@@ -6,28 +6,22 @@ import (
     "fmt"
     "net/http"
     "sync/atomic"
+    "brewing_service"
 )
 
-type Recipe map[string]int
-
-type Mutex struct {
-    isBoozing int32
-}
-var boozing = &Mutex{}
+var brewer = Brewer
 
 func brew(w http.ResponseWriter, r *http.Request) {
     fmt.Fprintf(w, "Hello world!\n")
     decoder := json.NewDecoder(r.Body)
-    var boozeRequest []Recipe
-    err := decoder.Decode(&boozeRequest)
+    var brewRequest Recipe
+    err := decoder.Decode(&brewRequest)
     if(err != nil) {
         fmt.Fprintf(w, "Wrong request format\n" + err.Error())
         return
     }
-    if(atomic.CompareAndSwapInt32(&boozing.isBoozing, 0, 1)) {
-        time.Sleep(3000 * time.Millisecond)
-        fmt.Fprintf(w, "%+v\n", boozeRequest)
-        boozing.isBoozing = 0
+    if brewer.Brew(brewRequest) {
+        fmt.Fprintf(w, "%+v\n", brewRequest)
     } else {
         fmt.Fprintf(w, "Already boozing\n")
     }
