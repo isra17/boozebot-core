@@ -1,8 +1,9 @@
 package main
 
 import (
-    "time"
+    "strconv"
     "sync/atomic"
+    "sync"
 )
 
 type Recipe []map[string]int
@@ -46,5 +47,14 @@ func (brewer *Brewer) GetTaskId() int {
 func (brewer *Brewer) BrewRoutine(recipe Recipe) {
     defer brewer.Unlock()
 
-    time.Sleep(10000 * time.Millisecond)
+    for _,step := range recipe {
+        var stepWg sync.WaitGroup
+        for idStr,time := range step {
+          var id, _ = strconv.ParseInt(idStr, 10, 64)
+          stepWg.Add(1)
+          go ServePump(id, time, stepWg)
+        }
+
+        stepWg.Wait()
+    }
 }
