@@ -13,10 +13,8 @@ type Brewer struct {
     is_brewing int32
     task_id int
     recipe Recipe
-}
-
-type BrewingService interface {
-  Brew(recipe Recipe)
+    abort chan struct{}
+    abort_mutex sync.Mutex
 }
 
 func (brewer *Brewer) Lock() bool {
@@ -48,23 +46,34 @@ func (brewer *Brewer) GetTaskId() int {
 func (brewer *Brewer) BrewRoutine(recipe Recipe) {
     defer brewer.Unlock()
 
-    var abort = make(chan struct{})
+    brewer.abort = make(chan struct{})
 
     stepLoop:
     for stepi,step := range recipe {
-        var stepWg sync.WaitGroup
+        stepWg := sync.WaitGroup{}
         stepWg.Add(len(step))
         for idStr,time := range step {
           var id, _ = strconv.ParseInt(idStr, 10, 64)
-          go ServePump(id, time, &stepWg, abort)
+          go ServePump(id, time, &stepWg, brewer.abort)
         }
 
         stepWg.Wait()
         select {
-          case <- abort:
+          case <- brewer.abort:
             break stepLoop
           default:
         }
         fmt.Printf("Step %d done\n", stepi)
+    }
+}
+
+func (brewer *Brewer) Abort() {
+    brewer.abort_mutex.Lock()
+    defer brewer.abort_mutex.Unlock()
+
+    select {
+    case <- brewer.abort:
+    default:
+        close(brewer.abort)
     }
 }

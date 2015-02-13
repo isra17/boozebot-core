@@ -36,8 +36,14 @@ func status(w http.ResponseWriter, r *http.Request) {
     }
 }
 
+func abort(w http.ResponseWriter, r *http.Request) {
+    brewer.Abort()
+    status(w, r)
+}
+
 func main() {
     http.HandleFunc("/brew", brew)
     http.HandleFunc("/status", status)
+    http.HandleFunc("/abort", abort)
     http.ListenAndServe(":6543", nil)
 }
