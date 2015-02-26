@@ -37,6 +37,7 @@ func status(w http.ResponseWriter, r *http.Request) {
 }
 
 func main() {
+    initializePumps()
     http.HandleFunc("/brew", brew)
     http.HandleFunc("/status", status)
     http.ListenAndServe(":6543", nil)
